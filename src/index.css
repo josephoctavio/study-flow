@@ -1,0 +1,21 @@
+/* src/index.css */
+:root {
+  background-color: #121212; /* Dark workspace background */
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  justify-content: center; /* Centers the 430px phone container */
+  background-color: #000000;
+  overflow: hidden; /* Prevents the whole browser from scrolling */
+}
+
+#root {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
