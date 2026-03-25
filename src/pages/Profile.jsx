@@ -20,6 +20,15 @@ const avatarMap = {
   av12: `${BASE_URL}av12.png`,
 };
 
+// Reusable animated skeleton block
+const SkeletonPulse = ({ style, colors }) => (
+  <div style={{
+    backgroundColor: colors.card,
+    animation: 'pulse 1.5s infinite ease-in-out',
+    ...style
+  }} />
+);
+
 const Profile = ({ setActiveTab, theme }) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState({ id: '', full_name: '', matric_no: '', avatar_id: 'av1' });
@@ -96,9 +105,26 @@ const Profile = ({ setActiveTab, theme }) => {
     await supabase.auth.signOut();
   };
 
+  // NEW SKELETON LOADING STATE
   if (loading) return (
-    <div style={{ color: colors.text, height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '12px', letterSpacing: '2px' }}>
-      SYNCING...
+    <div style={{ padding: '20px', backgroundColor: colors.bg, minHeight: '100vh', paddingBottom: '120px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0 30px' }}>
+        <SkeletonPulse colors={colors} style={{ width: '110px', height: '110px', borderRadius: '40px', marginBottom: '20px' }} />
+        <SkeletonPulse colors={colors} style={{ width: '180px', height: '26px', borderRadius: '8px', marginBottom: '10px' }} />
+        <SkeletonPulse colors={colors} style={{ width: '100px', height: '24px', borderRadius: '12px' }} />
+      </div>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '35px' }}>
+        <SkeletonPulse colors={colors} style={{ height: '100px', borderRadius: '24px' }} />
+        <SkeletonPulse colors={colors} style={{ height: '100px', borderRadius: '24px' }} />
+      </div>
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {[1, 2, 3, 4].map(i => (
+          <SkeletonPulse key={i} colors={colors} style={{ height: '75px', borderRadius: '22px' }} />
+        ))}
+      </div>
+      <style>{`@keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }`}</style>
     </div>
   );
 
@@ -137,7 +163,8 @@ const Profile = ({ setActiveTab, theme }) => {
                 src={avatarMap[profile.avatar_id]} 
                 alt="profile" 
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }}
+                // RISK FIX: Hides the broken image entirely so the UserCircle fallback underneath looks clean
+                onError={(e) => { e.target.style.display = 'none'; }}
             />
           ) : (
             <UserCircle size={60} style={{ opacity: 0.9 }} />
@@ -182,6 +209,7 @@ const Profile = ({ setActiveTab, theme }) => {
         }
         .menu-btn { transition: all 0.2s ease; }
         .menu-btn:active { transform: scale(0.97); opacity: 0.7; }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
       `}</style>
     </div>
   );

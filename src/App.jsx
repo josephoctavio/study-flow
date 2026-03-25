@@ -1,21 +1,19 @@
-import { useState, useEffect } from 'react';
-import './App.css';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient';
+import './App.css';
 
-// Importing Auth Component
+// Components
 import Auth from './components/Auth';
-
-// Importing navigation and layout components
 import BottomNav from './components/BottomNav';
 import Header from './components/Header';
 
-// Importing the pages
+// Pages
 import Home from './pages/Home';
 import Tasks from './pages/Tasks';
 import Profile from './pages/Profile';
-import EditProfile from './pages/EditProfile'; // ✅ Added EditProfile Import
+import EditProfile from './pages/EditProfile';
 import CourseManager from './pages/CourseManager';
-import ScheduleManager from './pages/ScheduleManager'; 
+import ScheduleManager from './pages/ScheduleManager';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -41,19 +39,17 @@ function App() {
 
   // --- DATA FETCHING ---
   const fetchAllData = async () => {
-    if (!session) return; 
+    if (!session) return;
     
     setLoading(true);
     try {
-      const { data: tasks } = await supabase
-        .from('assignments')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      const { data: cat } = await supabase.from('courses').select('*');
+      const [tasksResponse, coursesResponse] = await Promise.all([
+        supabase.from('assignments').select('*').order('created_at', { ascending: false }),
+        supabase.from('courses').select('*')
+      ]);
 
-      if (tasks) setAssignments(tasks);
-      if (cat) setCourses(cat);
+      if (tasksResponse.data) setAssignments(tasksResponse.data);
+      if (coursesResponse.data) setCourses(coursesResponse.data);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -67,12 +63,13 @@ function App() {
     }
   }, [session]);
 
-  const theme = {
+  // --- MEMOIZED THEME ---
+  const theme = useMemo(() => ({
     bg: darkMode ? '#000000' : '#F5F5F7',
     text: darkMode ? '#FFFFFF' : '#000000',
     card: darkMode ? '#111111' : '#FFFFFF',
     border: darkMode ? '#222222' : '#E5E5E5'
-  };
+  }), [darkMode]);
 
   if (!session) {
     return <Auth />;
@@ -84,45 +81,46 @@ function App() {
       <div className="mobile-container" style={{ color: theme.text }}>
         
         <main className="main-content">
-          {/* 1. HOME PAGE */}
-          <div style={{ display: activeTab === 'home' ? 'block' : 'none' }}>
-            <Header title="STUDYFLOW" showThemeToggle={true} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} />
-            <Home assignments={assignments} loading={loading} theme={theme} darkMode={darkMode} />
-          </div>
+          {/* 1. HOME PAGE - Kept Header here for the Theme Toggle access */}
+          {activeTab === 'home' && (
+            <>
+              <Header title="STUDYFLOW" showThemeToggle={true} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} />
+              <Home assignments={assignments} loading={loading} theme={theme} darkMode={darkMode} />
+            </>
+          )}
 
-          {/* 2. TASKS PAGE */}
-          <div style={{ display: activeTab === 'tasks' ? 'block' : 'none' }}>
-            <Header title="MY ASSIGNMENTS" theme={theme} />
+          {/* 2. TASKS PAGE - Header Removed to fix "smushed" look */}
+          {activeTab === 'tasks' && (
             <Tasks assignments={assignments} loading={loading} theme={theme} />
-          </div>
+          )}
 
           {/* 3. PROFILE PAGE */}
-          <div style={{ display: activeTab === 'profile' ? 'block' : 'none' }}>
+          {activeTab === 'profile' && (
              <Profile setActiveTab={setActiveTab} theme={theme} />
-          </div>
+          )}
 
-          {/* 3b. EDIT PROFILE PAGE ✅ Added logic here */}
-          <div style={{ display: activeTab === 'edit-profile' ? 'block' : 'none' }}>
+          {/* 3b. EDIT PROFILE PAGE */}
+          {activeTab === 'edit-profile' && (
              <EditProfile onBack={() => setActiveTab('profile')} theme={theme} />
-          </div>
+          )}
 
           {/* 4. COURSE MANAGER PAGE */}
-          <div style={{ display: activeTab === 'course-manager' ? 'block' : 'none' }}>
+          {activeTab === 'course-manager' && (
             <CourseManager setActiveTab={setActiveTab} theme={theme} />
-          </div>
+          )}
 
           {/* 5. SCHEDULE MANAGER PAGE */}
-          <div style={{ display: activeTab === 'schedule-manager' ? 'block' : 'none' }}>
+          {activeTab === 'schedule-manager' && (
             <ScheduleManager setActiveTab={setActiveTab} theme={theme} />
-          </div>
+          )}
 
-          {/* 6. SETTINGS PAGE */}
-          <div style={{ display: activeTab === 'config' ? 'block' : 'none' }}>
-            <Header title="SETTINGS" theme={theme} />
+          {/* 6. SETTINGS PAGE - Header Removed */}
+          {activeTab === 'config' && (
             <div style={{ padding: '20px' }}>
               <h2 style={{ fontSize: '24px', fontWeight: '900' }}>Settings</h2>
-              <button 
+              <button
                 onClick={() => supabase.auth.signOut()}
+                className="sign-out-btn"
                 style={{
                   marginTop: '20px',
                   padding: '12px 20px',
@@ -137,7 +135,7 @@ function App() {
                 Sign Out
               </button>
             </div>
-          </div>
+          )}
         </main>
 
         {/* PERMANENT BOTTOM NAV */}
