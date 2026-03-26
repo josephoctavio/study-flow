@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import './App.css';
 
@@ -14,11 +14,14 @@ import Profile from './pages/Profile';
 import EditProfile from './pages/EditProfile';
 import CourseManager from './pages/CourseManager';
 import ScheduleManager from './pages/ScheduleManager';
+import Settings from './pages/Settings';
+import PrivacySecurity from './pages/PrivacySecurity'; // <--- IMPORTED
 
 function App() {
   const [session, setSession] = useState(null);
+  const [initializing, setInitializing] = useState(true); 
   const [activeTab, setActiveTab] = useState('home');
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(true); 
   
   const [assignments, setAssignments] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -26,26 +29,61 @@ function App() {
 
   // --- AUTH LOGIC ---
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
-    });
+      setInitializing(false);
+    };
+
+    checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      setInitializing(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  // --- THEME SYNC LOGIC ---
+  const fetchUserPreferences = useCallback(async (userId) => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('dark_mode')
+        .eq('id', userId)
+        .single();
+
+      if (data && data.dark_mode !== null) {
+        setDarkMode(data.dark_mode);
+      }
+    } catch (err) {
+      console.error("Error fetching preferences:", err);
+    }
+  }, []);
+
+  const toggleTheme = async () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode); 
+
+    if (session?.user?.id) {
+      await supabase
+        .from('profiles')
+        .update({ dark_mode: newMode })
+        .eq('id', session.user.id);
+    }
+  };
+
   // --- DATA FETCHING ---
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     if (!session) return;
     
     setLoading(true);
     try {
       const [tasksResponse, coursesResponse] = await Promise.all([
         supabase.from('assignments').select('*').order('created_at', { ascending: false }),
-        supabase.from('courses').select('*')
+        supabase.from('courses').select('*'),
+        fetchUserPreferences(session.user.id)
       ]);
 
       if (tasksResponse.data) setAssignments(tasksResponse.data);
@@ -55,13 +93,13 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [session, fetchUserPreferences]);
 
   useEffect(() => {
     if (session) {
       fetchAllData();
     }
-  }, [session]);
+  }, [session, fetchAllData]);
 
   // --- MEMOIZED THEME ---
   const theme = useMemo(() => ({
@@ -70,6 +108,10 @@ function App() {
     card: darkMode ? '#111111' : '#FFFFFF',
     border: darkMode ? '#222222' : '#E5E5E5'
   }), [darkMode]);
+
+  if (initializing) {
+    return <div style={{ backgroundColor: theme.bg, minHeight: '100vh' }} />;
+  }
 
   if (!session) {
     return <Auth />;
@@ -81,64 +123,65 @@ function App() {
       <div className="mobile-container" style={{ color: theme.text }}>
         
         <main className="main-content">
-          {/* 1. HOME PAGE - Kept Header here for the Theme Toggle access */}
+          {/* HOME PAGE */}
           {activeTab === 'home' && (
             <>
-              <Header title="STUDYFLOW" showThemeToggle={true} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} />
-              <Home assignments={assignments} loading={loading} theme={theme} darkMode={darkMode} />
+              <Header 
+                title="STUDYFLOW" 
+                showThemeToggle={true} 
+                darkMode={darkMode} 
+                setDarkMode={toggleTheme} 
+                theme={theme} 
+              />
+              <Home 
+                userId={session?.user?.id}
+                assignments={assignments} 
+                loading={loading} 
+                theme={theme} 
+                darkMode={darkMode} 
+              />
             </>
           )}
 
-          {/* 2. TASKS PAGE - Header Removed to fix "smushed" look */}
+          {/* TASKS PAGE */}
           {activeTab === 'tasks' && (
             <Tasks assignments={assignments} loading={loading} theme={theme} />
           )}
 
-          {/* 3. PROFILE PAGE */}
+          {/* PROFILE PAGES */}
           {activeTab === 'profile' && (
              <Profile setActiveTab={setActiveTab} theme={theme} />
           )}
 
-          {/* 3b. EDIT PROFILE PAGE */}
           {activeTab === 'edit-profile' && (
              <EditProfile onBack={() => setActiveTab('profile')} theme={theme} />
           )}
 
-          {/* 4. COURSE MANAGER PAGE */}
+          {/* MANAGER PAGES */}
           {activeTab === 'course-manager' && (
             <CourseManager setActiveTab={setActiveTab} theme={theme} />
           )}
 
-          {/* 5. SCHEDULE MANAGER PAGE */}
           {activeTab === 'schedule-manager' && (
             <ScheduleManager setActiveTab={setActiveTab} theme={theme} />
           )}
 
-          {/* 6. SETTINGS PAGE - Header Removed */}
+          {/* SETTINGS PAGE */}
           {activeTab === 'config' && (
-            <div style={{ padding: '20px' }}>
-              <h2 style={{ fontSize: '24px', fontWeight: '900' }}>Settings</h2>
-              <button
-                onClick={() => supabase.auth.signOut()}
-                className="sign-out-btn"
-                style={{
-                  marginTop: '20px',
-                  padding: '12px 20px',
-                  backgroundColor: '#FF3B30',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-              >
-                Sign Out
-              </button>
-            </div>
+            <Settings 
+              setActiveTab={setActiveTab} 
+              theme={theme} 
+              darkMode={darkMode} 
+              toggleTheme={toggleTheme} 
+            />
+          )}
+
+          {/* PRIVACY & SECURITY PAGE */}
+          {activeTab === 'privacy-security' && (
+            <PrivacySecurity onBack={() => setActiveTab('config')} theme={theme} />
           )}
         </main>
 
-        {/* PERMANENT BOTTOM NAV */}
         <footer className="nav-wrapper" style={{ backgroundColor: theme.card, borderTop: `1px solid ${theme.border}` }}>
           <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} />
         </footer>
