@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Mail, Lock, User, Eye, EyeOff, ArrowLeft, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, ArrowLeft, ShieldCheck, Save } from 'lucide-react';
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
@@ -14,20 +14,16 @@ export default function Auth() {
   const [fullName, setFullName] = useState('');
 
   useEffect(() => {
-    // 1. Check the URL immediately on load (Critical for catches after redirect)
-    const hash = window.location.hash;
-    if (hash && hash.includes("type=recovery")) {
+    // 1. Detect if the user arrived here from a recovery email link
+    // Supabase puts "type=recovery" in the URL hash when you click that link
+    if (window.location.hash.includes('type=recovery')) {
       setIsUpdatingPassword(true);
-      setResetMode(false);
-      setIsSignUp(false);
     }
 
-    // 2. Also listen for the event for better reliability while app is open
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+    // 2. Also listen for the internal Supabase event
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
         setIsUpdatingPassword(true);
-        setResetMode(false);
-        setIsSignUp(false);
       }
     });
 
@@ -40,33 +36,33 @@ export default function Auth() {
 
     try {
       if (isUpdatingPassword) {
-        // Finalize the password reset
+        // STEP: Save the NEW password
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;
-        alert('Password updated successfully! You can now log in.');
+        alert('Password saved! Please log in with your new password.');
         
-        // Clean up URL and state
-        window.history.replaceState(null, null, ' '); 
+        // Redirect back to normal login state
         setIsUpdatingPassword(false);
         setPassword('');
+        window.location.hash = ''; // Clear the recovery token from URL
       } else if (resetMode) {
-        // Request the reset link
+        // STEP: Send the email link
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: window.location.origin, 
         });
         if (error) throw error;
-        alert('Password reset link sent to your email!');
+        alert('Check your email for the reset link!');
         setResetMode(false);
       } else if (isSignUp) {
-        // Create account
+        // STEP: Sign Up
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         if (data.user) {
           await supabase.from('profiles').insert([{ id: data.user.id, full_name: fullName }]);
         }
-        alert('Account created! Check your email for verification if required.');
+        alert('Account created!');
       } else {
-        // Standard Sign In
+        // STEP: Normal Login
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
@@ -81,31 +77,22 @@ export default function Auth() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6 font-sans">
       <div className="w-full max-w-md space-y-6 bg-zinc-900/50 p-8 rounded-3xl border border-zinc-800 backdrop-blur-sm">
         
-        {/* Header Section */}
         <div className="text-center space-y-2">
           <div className="flex justify-center mb-4">
              <div className="p-3 bg-blue-600/20 rounded-2xl border border-blue-500/30">
-                {isUpdatingPassword ? (
-                  <CheckCircle2 className="text-blue-500" size={32} />
-                ) : (
-                  <ShieldCheck className="text-blue-500" size={32} />
-                )}
+                <ShieldCheck className="text-blue-500" size={32} />
              </div>
           </div>
           <h2 className="text-3xl font-extrabold tracking-tight">
-            {isUpdatingPassword ? 'New Password' : resetMode ? 'Reset Password' : isSignUp ? 'Join StudyFlow' : 'Welcome Back'}
+            {isUpdatingPassword ? 'Set New Password' : resetMode ? 'Reset Password' : isSignUp ? 'Join StudyFlow' : 'Welcome Back'}
           </h2>
           <p className="text-zinc-500 text-sm">
-            {isUpdatingPassword 
-              ? 'Secure your account with a new password' 
-              : resetMode 
-                ? 'Enter your email to receive a recovery link' 
-                : 'Your Academic Command Center'}
+            {isUpdatingPassword ? 'Type your new password below' : resetMode ? 'Check your email after sending' : 'Your Academic Command Center'}
           </p>
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
-          {/* Back Button for Reset/Update Modes */}
+          {/* Back button for non-login states */}
           {(resetMode || isUpdatingPassword) && (
             <button 
               type="button" 
@@ -116,12 +103,12 @@ export default function Auth() {
             </button>
           )}
 
-          {/* Full Name Field (Sign Up Only) */}
+          {/* Registration only */}
           {isSignUp && !resetMode && !isUpdatingPassword && (
             <div className="relative">
               <User className="absolute left-3 top-3.5 text-zinc-600" size={18} />
               <input
-                className="w-full p-3.5 pl-11 bg-black/40 border border-zinc-800 rounded-xl focus:border-blue-500 outline-none transition-all"
+                className="w-full p-3.5 pl-11 bg-black/40 border border-zinc-800 rounded-xl outline-none"
                 placeholder="Full Name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
@@ -130,12 +117,12 @@ export default function Auth() {
             </div>
           )}
 
-          {/* Email Field (Hidden during password update) */}
+          {/* Email input (Hidden when actually typing the new password) */}
           {!isUpdatingPassword && (
             <div className="relative">
               <Mail className="absolute left-3 top-3.5 text-zinc-600" size={18} />
               <input
-                className="w-full p-3.5 pl-11 bg-black/40 border border-zinc-800 rounded-xl focus:border-blue-500 outline-none"
+                className="w-full p-3.5 pl-11 bg-black/40 border border-zinc-800 rounded-xl outline-none"
                 type="email"
                 placeholder="Email Address"
                 value={email}
@@ -145,14 +132,14 @@ export default function Auth() {
             </div>
           )}
 
-          {/* Password Field (Hidden during Reset Mode email request) */}
+          {/* Password input (Hidden when only requesting the reset email) */}
           {!resetMode && (
             <div className="relative">
               <Lock className="absolute left-3 top-3.5 text-zinc-600" size={18} />
               <input
-                className="w-full p-3.5 pl-11 pr-11 bg-black/40 border border-zinc-800 rounded-xl focus:border-blue-500 outline-none"
+                className="w-full p-3.5 pl-11 pr-11 bg-black/40 border border-zinc-800 rounded-xl outline-none"
                 type={showPassword ? "text" : "password"}
-                placeholder={isUpdatingPassword ? "New Password" : "Password"}
+                placeholder={isUpdatingPassword ? "Enter New Password" : "Password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -169,40 +156,26 @@ export default function Auth() {
 
           <button
             disabled={loading}
-            className="w-full py-4 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 active:scale-[0.98] transition-all shadow-lg shadow-white/5"
+            className="w-full py-4 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 transition-all"
           >
-            {loading ? 'Working...' : isUpdatingPassword ? 'Set New Password' : resetMode ? 'Send Reset Link' : isSignUp ? 'Create Account' : 'Sign In'}
+            {loading ? 'Processing...' : isUpdatingPassword ? 'Save New Password' : resetMode ? 'Send Reset Link' : isSignUp ? 'Create Account' : 'Sign In'}
           </button>
         </form>
 
         <div className="flex flex-col gap-3 pt-2">
           {!resetMode && !isSignUp && !isUpdatingPassword && (
-            <button
-              onClick={() => setResetMode(true)}
-              className="text-xs text-zinc-500 hover:text-blue-500 transition-colors"
-            >
+            <button onClick={() => setResetMode(true)} className="text-xs text-zinc-500 hover:text-blue-500">
               Forgot your password?
             </button>
           )}
 
           {!isUpdatingPassword && (
-            <button
-              onClick={() => { setIsSignUp(!isSignUp); setResetMode(false); }}
-              className="text-sm text-zinc-400"
-            >
-              {isSignUp ? (
-                <span>Already have an account? <span className="text-white font-semibold">Login</span></span>
-              ) : (
-                <span>Don't have an account? <span className="text-white font-semibold">Sign Up</span></span>
-              )}
+            <button onClick={() => { setIsSignUp(!isSignUp); setResetMode(false); }} className="text-sm text-zinc-400">
+              {isSignUp ? <span>Already have an account? <span className="text-white font-semibold">Login</span></span> : <span>Don't have an account? <span className="text-white font-semibold">Sign Up</span></span>}
             </button>
           )}
         </div>
       </div>
-      
-      <p className="mt-8 text-zinc-600 text-[10px] uppercase tracking-[2px]">
-        Secure End-to-End Encryption
-      </p>
     </div>
   );
 }

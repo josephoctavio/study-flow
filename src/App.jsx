@@ -22,7 +22,7 @@ function App() {
   const [initializing, setInitializing] = useState(true); 
   const [activeTab, setActiveTab] = useState('home');
   const [darkMode, setDarkMode] = useState(true); 
-  const [isRecoveringPassword, setIsRecoveringPassword] = useState(false); // <--- NEW STATE
+  const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
   
   const [assignments, setAssignments] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -30,35 +30,46 @@ function App() {
 
   // --- AUTH LOGIC ---
   useEffect(() => {
-    // Check initial session
-    const checkSession = async () => {
+    // Check initial session and URL for recovery tokens
+    const checkInitialAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
+
+      // Check if we arrived via a recovery link immediately
+      if (window.location.hash.includes('type=recovery')) {
+        setIsRecoveringPassword(true);
+      }
+      
       setInitializing(false);
     };
 
-    checkSession();
+    checkInitialAuth();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      setInitializing(false);
-
-      // NEW: Intercept Recovery Event
+      
       if (event === "PASSWORD_RECOVERY") {
         setIsRecoveringPassword(true); 
       }
       
-      // Reset recovery state on sign out or successful login
       if (event === "SIGNED_OUT") {
         setIsRecoveringPassword(false);
+        setActiveTab('home'); // Reset tab on logout
       }
+
+      if (event === "USER_UPDATED" && isRecoveringPassword) {
+        // This triggers after a successful password save
+        setIsRecoveringPassword(false);
+      }
+
+      setInitializing(false);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [isRecoveringPassword]);
 
-  // --- THEME SYNC LOGIC ---
+  // --- THEME & DATA FETCHING ---
   const fetchUserPreferences = useCallback(async (userId) => {
     try {
       const { data } = await supabase
@@ -78,18 +89,13 @@ function App() {
   const toggleTheme = async () => {
     const newMode = !darkMode;
     setDarkMode(newMode); 
-
     if (session?.user?.id) {
-      await supabase
-        .from('profiles')
-        .update({ dark_mode: newMode })
-        .eq('id', session.user.id);
+      await supabase.from('profiles').update({ dark_mode: newMode }).eq('id', session.user.id);
     }
   };
 
-  // --- DATA FETCHING ---
   const fetchAllData = useCallback(async () => {
-    if (!session) return;
+    if (!session || isRecoveringPassword) return; // Don't fetch data during recovery
     
     setLoading(true);
     try {
@@ -106,104 +112,55 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [session, fetchUserPreferences]);
+  }, [session, isRecoveringPassword, fetchUserPreferences]);
 
   useEffect(() => {
-    if (session) {
-      fetchAllData();
-    }
-  }, [session, fetchAllData]);
+    fetchAllData();
+  }, [fetchAllData]);
 
-  // --- MEMOIZED THEME ---
   const theme = useMemo(() => ({
     bg: darkMode ? '#000000' : '#F5F5F7',
     text: darkMode ? '#FFFFFF' : '#000000',
     card: darkMode ? '#111111' : '#FFFFFF',
-    border: darkMode ? '#222222' : '#E5E5E5'
+    border: darkMode ? '#222222' : '#E5E5E5',
+    accent: '#007AFF',
+    danger: '#FF3B30'
   }), [darkMode]);
 
-  // 1. Initializing state
+  // 1. Loading State
   if (initializing) {
-    return <div style={{ backgroundColor: theme.bg, minHeight: '100vh' }} />;
+    return <div style={{ backgroundColor: '#000', minHeight: '100vh' }} />;
   }
 
-  // 2. Recovery Mode - Force Auth component with recovery flag
-  if (isRecoveringPassword) {
-    return <Auth recoveryMode={true} />;
-  }
-
-  // 3. No Session - Normal Auth
-  if (!session) {
+  // 2. Auth Gate (Login or Password Reset)
+  // We show Auth if there is no session OR if we are specifically in recovery mode
+  if (!session || isRecoveringPassword) {
     return <Auth />;
   }
 
-  // 4. Main App Shell
+  // 3. Main App Shell
   return (
-    <div className={`app-shell ${darkMode ? 'dark' : 'light'}`} style={{ backgroundColor: theme.bg }}>
-      
-      <div className="mobile-container" style={{ color: theme.text }}>
+    <div className={`app-shell ${darkMode ? 'dark' : 'light'}`} style={{ backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
+      <div className="mobile-container">
         
-        <main className="main-content">
-          {/* HOME PAGE */}
+        <main className="main-content" style={{ paddingBottom: '80px' }}>
           {activeTab === 'home' && (
             <>
-              <Header 
-                title="STUDYFLOW" 
-                showThemeToggle={true} 
-                darkMode={darkMode} 
-                setDarkMode={toggleTheme} 
-                theme={theme} 
-              />
-              <Home 
-                userId={session?.user?.id}
-                assignments={assignments} 
-                loading={loading} 
-                theme={theme} 
-                darkMode={darkMode} 
-              />
+              <Header title="STUDYFLOW" showThemeToggle={true} darkMode={darkMode} setDarkMode={toggleTheme} theme={theme} />
+              <Home userId={session?.user?.id} assignments={assignments} loading={loading} theme={theme} darkMode={darkMode} />
             </>
           )}
 
-          {/* TASKS PAGE */}
-          {activeTab === 'tasks' && (
-            <Tasks assignments={assignments} loading={loading} theme={theme} />
-          )}
-
-          {/* PROFILE PAGES */}
-          {activeTab === 'profile' && (
-             <Profile setActiveTab={setActiveTab} theme={theme} />
-          )}
-
-          {activeTab === 'edit-profile' && (
-             <EditProfile onBack={() => setActiveTab('profile')} theme={theme} />
-          )}
-
-          {/* MANAGER PAGES */}
-          {activeTab === 'course-manager' && (
-            <CourseManager setActiveTab={setActiveTab} theme={theme} />
-          )}
-
-          {activeTab === 'schedule-manager' && (
-            <ScheduleManager setActiveTab={setActiveTab} theme={theme} />
-          )}
-
-          {/* SETTINGS PAGE */}
-          {activeTab === 'config' && (
-            <Settings 
-              setActiveTab={setActiveTab} 
-              theme={theme} 
-              darkMode={darkMode} 
-              toggleTheme={toggleTheme} 
-            />
-          )}
-
-          {/* PRIVACY & SECURITY PAGE */}
-          {activeTab === 'privacy-security' && (
-            <PrivacySecurity onBack={() => setActiveTab('config')} theme={theme} />
-          )}
+          {activeTab === 'tasks' && <Tasks assignments={assignments} loading={loading} theme={theme} />}
+          {activeTab === 'profile' && <Profile setActiveTab={setActiveTab} theme={theme} />}
+          {activeTab === 'edit-profile' && <EditProfile onBack={() => setActiveTab('profile')} theme={theme} />}
+          {activeTab === 'course-manager' && <CourseManager setActiveTab={setActiveTab} theme={theme} />}
+          {activeTab === 'schedule-manager' && <ScheduleManager setActiveTab={setActiveTab} theme={theme} />}
+          {activeTab === 'config' && <Settings setActiveTab={setActiveTab} theme={theme} darkMode={darkMode} toggleTheme={toggleTheme} />}
+          {activeTab === 'privacy-security' && <PrivacySecurity onBack={() => setActiveTab('config')} theme={theme} />}
         </main>
 
-        <footer className="nav-wrapper" style={{ backgroundColor: theme.card, borderTop: `1px solid ${theme.border}` }}>
+        <footer className="nav-wrapper" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: theme.card, borderTop: `1px solid ${theme.border}`, zIndex: 1000 }}>
           <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} />
         </footer>
         
