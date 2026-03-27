@@ -74,7 +74,7 @@ const Profile = ({ setActiveTab, theme, darkMode, stats, userName, profileData, 
         </div>
       )}
 
-      {/* UPDATED PROFILE PICTURE SECTION */}
+      {/* PROFILE HEADER */}
       <div style={{ textAlign: 'center', paddingTop: '40px', paddingBottom: '40px' }}>
         <div style={{ 
           width: '110px', height: '110px', borderRadius: '32px',
@@ -103,18 +103,21 @@ const Profile = ({ setActiveTab, theme, darkMode, stats, userName, profileData, 
         </div>
       </div>
 
-      {/* STATS (Now using Global Brain data) */}
+      {/* GLOBAL STATS */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '35px' }}>
         <StatCard icon={<BarChart3 size={18} color="#5856D6" />} value={stats?.courses || 0} label="Courses" colors={colors} />
         <StatCard icon={<BookOpen size={18} color="#34C759" />} value={stats?.totalTasks || 0} label="Tasks" colors={colors} />
       </div>
 
       {/* MENU BUTTONS */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '30px' }}>
+        <h4 style={{ fontSize: '10px', fontWeight: '900', color: '#555', letterSpacing: '1px', marginBottom: '8px', paddingLeft: '8px' }}>MANAGEMENT</h4>
         <MenuButton icon={<UserCog size={18} color="#AF52DE" />} label="Edit Profile" onClick={() => setActiveTab('edit-profile')} colors={colors} />
-        <MenuButton icon={<BookOpen size={18} color="#007AFF" />} label="Course Manager" onClick={() => setActiveTab('course-manager')} colors={colors} />
+        <BookOpenButton icon={<BookOpen size={18} color="#007AFF" />} label="Course Manager" onClick={() => setActiveTab('course-manager')} colors={colors} />
         <MenuButton icon={<Clock size={18} color="#FF9500" />} label="Timetable" onClick={() => setActiveTab('schedule-manager')} colors={colors} />
-        <MenuButton icon={<Settings size={18} color="#8E8E93" />} label="Settings" onClick={() => setActiveTab('config')} colors={colors} />
+        
+        <h4 style={{ fontSize: '10px', fontWeight: '900', color: '#555', letterSpacing: '1px', marginBottom: '8px', marginTop: '12px', paddingLeft: '8px' }}>SYSTEM</h4>
+        <MenuButton icon={<Settings size={18} color="#8E8E93" />} label="App Settings" onClick={() => setActiveTab('config')} colors={colors} />
       </div>
 
       <button onClick={() => setModalOpen(true)} style={logoutStyle}>
@@ -163,6 +166,9 @@ const MenuButton = ({ icon, label, onClick, colors }) => (
     <ChevronRight size={16} style={{ opacity: 0.2 }} />
   </button>
 );
+
+// Specifically defining BookOpenButton since it was part of the original structure
+const BookOpenButton = MenuButton;
 
 const logoutStyle = {
   width: '100%', marginTop: '40px', padding: '16px', border: 'none', background: 'transparent',
