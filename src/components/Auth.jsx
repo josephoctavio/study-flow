@@ -111,7 +111,7 @@ export default function Auth({ forceRecovery = false }) {
       
       {/* BRANDING (TOP LEFT) */}
       <div style={{ paddingTop: '10px', width: '100%' }}>
-        <h1 style={{ fontSize: '26px', fontWeight: '900', letterSpacing: '-1.2px', margin: 0 }}>StudyFlow</h1>
+        <h1 style={{ fontSize: '26px', fontWeight: '900', letterSpacing: '-1.2px', margin: 0 }}>Focus Forge</h1>
         <p style={{ opacity: 0.4, fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '2px', marginTop: '2px' }}>
             By Deltryn Studios
         </p>

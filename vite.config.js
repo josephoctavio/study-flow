@@ -10,8 +10,8 @@ export default defineConfig({
       // We only include the assets that actually exist in your public folder
       includeAssets: ['pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'StudyFlow Academic',
-        short_name: 'StudyFlow',
+        name: 'Focus Forge',
+        short_name: 'Focus Forge',
         description: 'Your Academic Command Center',
         theme_color: '#000000',
         background_color: '#000000',
