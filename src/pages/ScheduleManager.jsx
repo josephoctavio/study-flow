@@ -31,6 +31,16 @@ const ScheduleManager = ({ setActiveTab, theme, darkMode, courses, timetable, lo
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 2500);
   };
 
+  // Helper: Convert 24h (HH:mm) to 12h (h:mm AM/PM)
+  const formatTo12Hr = (timeStr) => {
+    if (!timeStr) return '';
+    const [hours, minutes] = timeStr.split(':');
+    let h = parseInt(hours);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${h}:${minutes} ${ampm}`;
+  };
+
   const handleSave = async () => {
     if (!selectedCourse) {
       setErrors({ course: true });
@@ -52,7 +62,7 @@ const ScheduleManager = ({ setActiveTab, theme, darkMode, courses, timetable, lo
       : await supabase.from('timetable').insert([payload]);
 
     if (!error) {
-      showToast(editingId ? "Schedule Updated" : "Class Added");
+      showToast(editingId ? "Updated" : "Added");
       refreshData();
       resetForm();
     }
@@ -63,11 +73,11 @@ const ScheduleManager = ({ setActiveTab, theme, darkMode, courses, timetable, lo
     setModalConfig({
       isOpen: true,
       title: "Remove Class?",
-      message: `Remove ${name} from your ${activeDay} schedule?`,
+      message: `Remove ${name} from your schedule?`,
       onConfirm: async () => {
         const { error } = await supabase.from('timetable').delete().eq('id', id);
         if (!error) {
-          showToast("Class Removed", "delete");
+          showToast("Removed", "delete");
           refreshData();
         }
         setModalConfig({ ...modalConfig, isOpen: false });
@@ -101,42 +111,41 @@ const ScheduleManager = ({ setActiveTab, theme, darkMode, courses, timetable, lo
   );
 
   const SkeletonItem = () => (
-    <div className="skeleton" style={{ height: '85px', borderRadius: '24px', marginBottom: '15px' }} />
+    <div className="skeleton" style={{ height: '70px', borderRadius: '20px', marginBottom: '12px' }} />
   );
 
   return (
-    <div style={{ padding: '24px', backgroundColor: theme.bg, minHeight: '100vh', color: theme.text, paddingBottom: '120px' }}>
+    <div style={{ padding: '20px', backgroundColor: theme.bg, minHeight: '100vh', color: theme.text, paddingBottom: '120px' }}>
       
       {/* TOAST & MODAL */}
       {toast.show && (
-        <div style={{ position: 'fixed', bottom: '100px', left: '50%', transform: 'translateX(-50%)', backgroundColor: toast.type === 'delete' ? '#FF3B30' : '#34C759', color: '#fff', padding: '14px 24px', borderRadius: '50px', zIndex: 10001, display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '800', fontSize: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.3)', animation: 'slideUpToast 0.3s ease-out' }}>
-          {toast.type === 'delete' ? <Trash2 size={16}/> : <CheckCircle2 size={16} />} {toast.message.toUpperCase()}
+        <div style={{ position: 'fixed', bottom: '100px', left: '50%', transform: 'translateX(-50%)', backgroundColor: toast.type === 'delete' ? '#FF3B30' : '#34C759', color: '#fff', padding: '12px 20px', borderRadius: '50px', zIndex: 10001, display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '900', fontSize: '10px', boxShadow: '0 10px 30px rgba(0,0,0,0.3)', animation: 'slideUpToast 0.3s ease-out' }}>
+          {toast.type === 'delete' ? <Trash2 size={14}/> : <CheckCircle2 size={14} />} {toast.message.toUpperCase()}
         </div>
       )}
 
       {/* HEADER */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '30px', paddingTop: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button onClick={() => setActiveTab('profile')} style={{ background: theme.card, border: `1px solid ${theme.border}`, padding: '10px', borderRadius: '14px', color: theme.text, display: 'flex' }}><ArrowLeft size={20} /></button>
-          <h2 style={{ fontSize: '20px', fontWeight: '900', letterSpacing: '-0.5px' }}>TIMETABLE</h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '25px', paddingTop: '5px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <button onClick={() => setActiveTab('profile')} style={{ background: theme.card, border: `1px solid ${theme.border}`, padding: '8px', borderRadius: '12px', color: theme.text, display: 'flex' }}><ArrowLeft size={18} /></button>
+          <h2 style={{ fontSize: '18px', fontWeight: '900', letterSpacing: '-0.8px' }}>TIMETABLE</h2>
         </div>
-        <button onClick={() => isFormOpen ? resetForm() : setIsFormOpen(true)} style={{ width: '44px', height: '44px', borderRadius: '14px', backgroundColor: isFormOpen ? theme.card : theme.accent, color: '#fff', border: isFormOpen ? `1px solid ${theme.border}` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
-          {isFormOpen ? <X size={22} style={{ color: theme.text }} /> : <Plus size={22} />}
+        <button onClick={() => isFormOpen ? resetForm() : setIsFormOpen(true)} style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: isFormOpen ? theme.card : theme.accent, color: '#fff', border: isFormOpen ? `1px solid ${theme.border}` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {isFormOpen ? <X size={20} style={{ color: theme.text }} /> : <Plus size={20} />}
         </button>
       </div>
 
       {/* DAY PICKER */}
       {!isFormOpen && (
-        <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '24px', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '20px', scrollbarWidth: 'none' }}>
           {days.map(d => (
             <button key={d} onClick={() => setActiveDay(d)} style={{
-              padding: '14px 22px', borderRadius: '18px', border: 'none',
+              padding: '10px 16px', borderRadius: '14px', border: 'none',
               backgroundColor: activeDay === d ? theme.accent : theme.card,
-              color: activeDay === d ? '#fff' : (darkMode ? '#555' : '#888'),
-              fontWeight: '800', fontSize: '13px', whiteSpace: 'nowrap',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              color: activeDay === d ? '#fff' : (darkMode ? '#666' : '#999'),
+              fontWeight: '900', fontSize: '11px', whiteSpace: 'nowrap',
               border: activeDay === d ? 'none' : `1px solid ${theme.border}`,
-              boxShadow: activeDay === d ? `0 8px 20px ${theme.accent}44` : 'none'
+              transition: 'all 0.2s'
             }}>
               {d.slice(0, 3).toUpperCase()}
             </button>
@@ -146,87 +155,89 @@ const ScheduleManager = ({ setActiveTab, theme, darkMode, courses, timetable, lo
 
       {/* FORM */}
       {isFormOpen && (
-        <div className={shouldShake ? 'shake' : ''} style={{ backgroundColor: theme.card, padding: '28px', borderRadius: '32px', border: `1px solid ${theme.border}`, marginBottom: '30px', animation: 'fadeIn 0.3s ease' }}>
-          <h2 style={{ fontSize: '10px', fontWeight: '900', color: theme.accent, letterSpacing: '1.5px', marginBottom: '24px' }}>
+        <div className={shouldShake ? 'shake' : ''} style={{ backgroundColor: theme.card, padding: '24px', borderRadius: '28px', border: `1px solid ${theme.border}`, marginBottom: '25px', animation: 'fadeIn 0.3s ease' }}>
+          <h2 style={{ fontSize: '9px', fontWeight: '900', color: theme.accent, letterSpacing: '1px', marginBottom: '20px' }}>
             {editingId ? 'MODIFY CLASS' : 'ASSIGN NEW CLASS'}
           </h2>
 
-          <div style={{ marginBottom: '18px', position: 'relative' }}>
-            <label style={{ fontSize: '10px', fontWeight: '900', opacity: 0.4, marginBottom: '10px', display: 'block' }}>SELECT COURSE</label>
-            <div onClick={() => { setIsCourseDropdownOpen(!isCourseDropdownOpen); setIsDayDropdownOpen(false); }} style={{ padding: '18px', borderRadius: '16px', backgroundColor: theme.bg, border: `1px solid ${errors.course ? '#FF3B30' : theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
-              <span style={{ fontWeight: '700', opacity: selectedCourse ? 1 : 0.3 }}>{selectedCourse ? selectedCourse.name : 'Choose course...'}</span>
-              <ChevronDown size={20} style={{ opacity: 0.4 }} />
+          <div style={{ marginBottom: '14px', position: 'relative' }}>
+            <label style={{ fontSize: '9px', fontWeight: '900', opacity: 0.4, marginBottom: '8px', display: 'block', letterSpacing: '0.5px' }}>COURSE</label>
+            <div onClick={() => { setIsCourseDropdownOpen(!isCourseDropdownOpen); setIsDayDropdownOpen(false); }} style={{ padding: '14px', borderRadius: '12px', backgroundColor: theme.bg, border: `1px solid ${errors.course ? '#FF3B30' : theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+              <span style={{ fontWeight: '800', fontSize: '13px', opacity: selectedCourse ? 1 : 0.3 }}>{selectedCourse ? selectedCourse.name : 'Choose course...'}</span>
+              <ChevronDown size={16} style={{ opacity: 0.4 }} />
             </div>
             {isCourseDropdownOpen && (
-              <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '18px', zIndex: 100, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
+              <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '14px', zIndex: 100, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 15px 30px rgba(0,0,0,0.3)' }}>
                 {courses.map(c => (
-                  <div key={c.id} onClick={() => { setSelectedCourse(c); setIsCourseDropdownOpen(false); setErrors({course:false}); }} style={{ padding: '16px', borderBottom: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: c.color }} />
-                    <span style={{ fontWeight: '800', fontSize: '14px' }}>{c.name}</span>
+                  <div key={c.id} onClick={() => { setSelectedCourse(c); setIsCourseDropdownOpen(false); setErrors({course:false}); }} style={{ padding: '12px 16px', borderBottom: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: c.color }} />
+                    <span style={{ fontWeight: '800', fontSize: '12px' }}>{c.name}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '18px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
             <div style={{ position: 'relative' }}>
-              <label style={{ fontSize: '10px', fontWeight: '900', opacity: 0.4, marginBottom: '10px', display: 'block' }}>DAY</label>
-              <div onClick={() => { setIsDayDropdownOpen(!isDayDropdownOpen); setIsCourseDropdownOpen(false); }} style={{ padding: '18px', borderRadius: '16px', backgroundColor: theme.bg, border: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
-                <span style={{ fontWeight: '700', fontSize: '14px' }}>{activeDay.slice(0,3)}</span>
-                <ChevronDown size={16} style={{ opacity: 0.4 }} />
+              <label style={{ fontSize: '9px', fontWeight: '900', opacity: 0.4, marginBottom: '8px', display: 'block', letterSpacing: '0.5px' }}>DAY</label>
+              <div onClick={() => { setIsDayDropdownOpen(!isDayDropdownOpen); setIsCourseDropdownOpen(false); }} style={{ padding: '14px', borderRadius: '12px', backgroundColor: theme.bg, border: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                <span style={{ fontWeight: '800', fontSize: '13px' }}>{activeDay.slice(0,3)}</span>
+                <ChevronDown size={14} style={{ opacity: 0.4 }} />
               </div>
               {isDayDropdownOpen && (
-                <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '18px', zIndex: 100 }}>
+                <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '14px', zIndex: 100 }}>
                   {days.map(d => (
-                    <div key={d} onClick={() => { setActiveDay(d); setIsDayDropdownOpen(false); }} style={{ padding: '14px', borderBottom: `1px solid ${theme.border}`, fontWeight: '800', fontSize: '13px', textAlign: 'center' }}>{d}</div>
+                    <div key={d} onClick={() => { setActiveDay(d); setIsDayDropdownOpen(false); }} style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, fontWeight: '900', fontSize: '11px', textAlign: 'center' }}>{d.toUpperCase()}</div>
                   ))}
                 </div>
               )}
             </div>
             <div>
-              <label style={{ fontSize: '10px', fontWeight: '900', opacity: 0.4, marginBottom: '10px', display: 'block' }}>TIME</label>
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ width: '100%', padding: '18px', borderRadius: '16px', backgroundColor: theme.bg, color: theme.text, border: `1px solid ${theme.border}`, fontWeight: '700', boxSizing: 'border-box' }} />
+              <label style={{ fontSize: '9px', fontWeight: '900', opacity: 0.4, marginBottom: '8px', display: 'block', letterSpacing: '0.5px' }}>TIME</label>
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '12px', backgroundColor: theme.bg, color: theme.text, border: `1px solid ${theme.border}`, fontWeight: '800', fontSize: '13px', boxSizing: 'border-box' }} />
             </div>
           </div>
 
-          <div style={{ marginBottom: '28px' }}>
-            <label style={{ fontSize: '10px', fontWeight: '900', opacity: 0.4, marginBottom: '10px', display: 'block' }}>LOCATION</label>
-            <input type="text" maxLength={25} placeholder="e.g. Science Lab" value={location} onChange={(e) => setLocation(e.target.value)} style={{ width: '100%', padding: '18px', borderRadius: '16px', backgroundColor: theme.bg, color: theme.text, border: `1px solid ${theme.border}`, fontWeight: '700', boxSizing: 'border-box' }} />
+          <div style={{ marginBottom: '22px' }}>
+            <label style={{ fontSize: '9px', fontWeight: '900', opacity: 0.4, marginBottom: '8px', display: 'block', letterSpacing: '0.5px' }}>LOCATION</label>
+            <input type="text" maxLength={25} placeholder="Room / Lab" value={location} onChange={(e) => setLocation(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '12px', backgroundColor: theme.bg, color: theme.text, border: `1px solid ${theme.border}`, fontWeight: '800', fontSize: '13px', boxSizing: 'border-box' }} />
           </div>
 
-          <button onClick={handleSave} disabled={formLoading} style={{ width: '100%', padding: '18px', borderRadius: '18px', backgroundColor: theme.accent, color: '#fff', border: 'none', fontWeight: '900', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-            {formLoading ? <Loader2 className="spin" size={20} /> : (editingId ? 'UPDATE CLASS' : 'CONFIRM CLASS')}
+          <button onClick={handleSave} disabled={formLoading} style={{ width: '100%', padding: '14px', borderRadius: '14px', backgroundColor: theme.accent, color: '#fff', border: 'none', fontWeight: '900', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', letterSpacing: '0.5px' }}>
+            {formLoading ? <Loader2 className="spin" size={16} /> : (editingId ? 'SAVE CHANGES' : 'ADD CLASS')}
           </button>
         </div>
       )}
 
       {/* LIST */}
       {!isFormOpen && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {loading ? (
             [1, 2, 3].map(i => <SkeletonItem key={i} />)
           ) : currentClasses.length > 0 ? (
             currentClasses.map(item => (
-              <div key={item.id} style={{ backgroundColor: theme.card, borderRadius: '28px', border: `1px solid ${theme.border}`, padding: '22px', display: 'flex', alignItems: 'center', gap: '18px', position: 'relative', overflow: 'hidden', animation: 'fadeIn 0.4s ease' }}>
-                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '6px', backgroundColor: item.courses?.color, boxShadow: `0 0 15px ${item.courses?.color}66` }} />
-                <div style={{ flex: 1, paddingLeft: '6px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '900', color: item.courses?.color, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1px' }}>{item.courses?.name}</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '18px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '17px', fontWeight: '900' }}><Clock size={18} color={theme.accent} strokeWidth={2.5} /> {item.start_time.slice(0, 5)}</div>
-                    {item.location && <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '700', opacity: 0.4 }}><MapPin size={16} strokeWidth={2.5} /> {item.location}</div>}
+              <div key={item.id} style={{ backgroundColor: theme.card, borderRadius: '24px', border: `1px solid ${theme.border}`, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px', position: 'relative', overflow: 'hidden', animation: 'fadeIn 0.4s ease' }}>
+                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', backgroundColor: item.courses?.color }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '9px', fontWeight: '900', color: item.courses?.color, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>{item.courses?.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '15px', fontWeight: '900' }}>
+                      <Clock size={14} color={theme.accent} strokeWidth={3} /> {formatTo12Hr(item.start_time)}
+                    </div>
+                    {item.location && <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '700', opacity: 0.3 }}><MapPin size={12} strokeWidth={3} /> {item.location}</div>}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button onClick={() => startEdit(item)} style={{ background: theme.bg, border: 'none', color: theme.text, opacity: 0.4, padding: '12px', borderRadius: '14px' }}><Edit2 size={18} /></button>
-                  <button onClick={() => confirmDelete(item.id, item.courses?.name)} style={{ background: 'rgba(255,59,48,0.1)', border: 'none', color: '#FF3B30', padding: '12px', borderRadius: '14px' }}><Trash2 size={18} /></button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => startEdit(item)} style={{ background: theme.bg, border: 'none', color: theme.text, opacity: 0.3, padding: '10px', borderRadius: '10px' }}><Edit2 size={16} /></button>
+                  <button onClick={() => confirmDelete(item.id, item.courses?.name)} style={{ background: 'rgba(255,59,48,0.1)', border: 'none', color: '#FF3B30', padding: '10px', borderRadius: '10px' }}><Trash2 size={16} /></button>
                 </div>
               </div>
             ))
           ) : (
-            <div style={{ height: '45vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.15 }}>
-              <CalendarDays size={72} strokeWidth={1} style={{ marginBottom: '16px' }} />
-              <p style={{ fontWeight: '900', fontSize: '13px', letterSpacing: '2px' }}>FREE DAY</p>
+            <div style={{ height: '40vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.1 }}>
+              <CalendarDays size={60} strokeWidth={1} style={{ marginBottom: '12px' }} />
+              <p style={{ fontWeight: '900', fontSize: '11px', letterSpacing: '2px' }}>FREE DAY</p>
             </div>
           )}
         </div>
@@ -234,13 +245,13 @@ const ScheduleManager = ({ setActiveTab, theme, darkMode, courses, timetable, lo
 
       {modalConfig.isOpen && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-          <div style={{ backgroundColor: theme.card, padding: '32px', borderRadius: '32px', maxWidth: '340px', width: '100%', textAlign: 'center', border: `1px solid ${theme.border}`, animation: 'scaleUp 0.2s ease' }}>
-            <AlertTriangle color="#FF3B30" size={36} style={{ marginBottom: '18px' }}/>
-            <h3 style={{ fontWeight: '900', fontSize: '20px', marginBottom: '10px' }}>{modalConfig.title}</h3>
-            <p style={{ opacity: 0.5, fontSize: '14px', lineHeight: '1.6', marginBottom: '28px' }}>{modalConfig.message}</p>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={() => setModalConfig({ ...modalConfig, isOpen: false })} style={{ flex: 1, padding: '16px', borderRadius: '16px', background: theme.border, color: theme.text, border: 'none', fontWeight: '800' }}>CANCEL</button>
-              <button onClick={modalConfig.onConfirm} style={{ flex: 1, padding: '16px', borderRadius: '16px', background: '#FF3B30', color: '#fff', border: 'none', fontWeight: '800' }}>REMOVE</button>
+          <div style={{ backgroundColor: theme.card, padding: '28px', borderRadius: '28px', maxWidth: '300px', width: '100%', textAlign: 'center', border: `1px solid ${theme.border}`, animation: 'scaleUp 0.2s ease' }}>
+            <AlertTriangle color="#FF3B30" size={32} style={{ marginBottom: '15px' }}/>
+            <h3 style={{ fontWeight: '900', fontSize: '18px', marginBottom: '8px' }}>{modalConfig.title}</h3>
+            <p style={{ opacity: 0.5, fontSize: '12px', lineHeight: '1.6', marginBottom: '24px' }}>{modalConfig.message}</p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setModalConfig({ ...modalConfig, isOpen: false })} style={{ flex: 1, padding: '14px', borderRadius: '12px', background: theme.border, color: theme.text, border: 'none', fontWeight: '900', fontSize: '11px' }}>CANCEL</button>
+              <button onClick={modalConfig.onConfirm} style={{ flex: 1, padding: '14px', borderRadius: '12px', background: '#FF3B30', color: '#fff', border: 'none', fontWeight: '900', fontSize: '11px' }}>REMOVE</button>
             </div>
           </div>
         </div>

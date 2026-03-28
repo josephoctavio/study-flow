@@ -59,7 +59,6 @@ const Home = ({ theme, darkMode, userName, stats, todayClasses, loading }) => {
 
   const status = getStatusConfig();
 
-  // --- SKELETON COMPONENT ---
   const SkeletonItem = ({ width, height, borderRadius = '12px', marginBottom = '0px' }) => (
     <div className="shimmer" style={{ 
       width, height, borderRadius, marginBottom,
@@ -144,6 +143,33 @@ const Home = ({ theme, darkMode, userName, stats, todayClasses, loading }) => {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : hour < 22 ? 'Good evening' : 'Late night study';
   const fullDateStr = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'short', day: 'numeric' }).format(currentTime).toUpperCase();
 
+  // Helper for rendering class cards to avoid repetition
+  const renderClassCard = (item, isPast = false) => (
+    <div key={item.id} style={{ 
+      padding: isPast ? '14px 18px' : '18px', 
+      backgroundColor: colors.card, 
+      borderRadius: isPast ? '20px' : '22px', 
+      border: `1px solid ${colors.border}`, 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: '14px',
+      opacity: isPast ? 0.6 : 1,
+      marginBottom: '10px'
+    }}>
+      <div style={{ width: isPast ? '3px' : '4px', height: isPast ? '24px' : '36px', backgroundColor: isPast ? '#444' : (item.courses?.color || colors.accent), borderRadius: '10px' }} />
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: isPast ? '13px' : '15px', fontWeight: isPast ? '700' : '800', color: colors.text, textDecoration: isPast ? 'line-through' : 'none' }}>{item.courses?.name}</div>
+        <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#666', fontWeight: '700' }}>
+            <Clock size={12} color={isPast ? '#444' : colors.accent} /> 
+            {isPast ? `Ended ${formatTime(item.start_time)}` : formatTime(item.start_time)}
+          </div>
+          {!isPast && item.location && <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#666', fontWeight: '700' }}><MapPin size={12} color="#FF2D55" /> {item.location}</div>}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ padding: '20px', paddingBottom: '120px', color: colors.text, backgroundColor: colors.bg, position: 'relative', minHeight: '100vh' }}>
       
@@ -212,23 +238,22 @@ const Home = ({ theme, darkMode, userName, stats, todayClasses, loading }) => {
         {nextClass && <div style={{ fontSize: '10px', fontWeight: '800', color: colors.accent, marginTop: '4px' }}>Next: {nextClass.courses?.name} in {timeToNextStr}</div>}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
         {upcomingClasses.length > 0 ? (
           <>
-            {upcomingClasses.slice(0, 3).map((item) => (
-              <div key={item.id} style={{ padding: '18px', backgroundColor: colors.card, borderRadius: '22px', border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div style={{ width: '4px', height: '36px', backgroundColor: item.courses?.color || colors.accent, borderRadius: '10px' }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '15px', fontWeight: '800', color: colors.text }}>{item.courses?.name}</div>
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#666', fontWeight: '700' }}><Clock size={12} color={colors.accent} /> {formatTime(item.start_time)}</div>
-                    {item.location && <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#666', fontWeight: '700' }}><MapPin size={12} color="#FF2D55" /> {item.location}</div>}
-                  </div>
-                </div>
-              </div>
-            ))}
+            {/* Always show first 3 */}
+            {upcomingClasses.slice(0, 3).map((item) => renderClassCard(item))}
+            
+            {/* Smooth Expandable Section */}
+            <div className={`expandable-content ${isExpanded ? 'is-open' : ''}`}>
+               {upcomingClasses.slice(3).map((item) => renderClassCard(item))}
+            </div>
+
             {upcomingClasses.length > 3 && (
-              <button onClick={() => setIsExpanded(!isExpanded)} style={{ background: 'none', border: 'none', color: colors.accent, fontWeight: '800', fontSize: '11px', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', margin: '0 auto', cursor: 'pointer' }}>
+              <button 
+                onClick={() => setIsExpanded(!isExpanded)} 
+                style={{ background: 'none', border: 'none', color: colors.accent, fontWeight: '800', fontSize: '11px', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', margin: '0 auto', cursor: 'pointer' }}
+              >
                 {isExpanded ? <>SHOW LESS <ChevronUp size={14}/></> : <>SHOW {upcomingClasses.length - 3} MORE <ChevronDown size={14}/></>}
               </button>
             )}
@@ -245,16 +270,21 @@ const Home = ({ theme, darkMode, userName, stats, todayClasses, loading }) => {
       {pastClasses.length > 0 && (
         <div style={{ marginTop: '32px' }}>
           <h3 style={{ fontSize: '10px', fontWeight: '900', color: '#666', letterSpacing: '1px', marginBottom: '12px', paddingLeft: '4px' }}>PAST CLASSES</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {pastClasses.slice(0, 3).map((item) => (
-              <div key={item.id} style={{ padding: '14px 18px', backgroundColor: colors.card, borderRadius: '20px', border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', gap: '14px', opacity: 0.5 }}>
-                <div style={{ width: '3px', height: '24px', backgroundColor: '#888', borderRadius: '10px' }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '13px', fontWeight: '700', color: colors.text, textDecoration: 'line-through' }}>{item.courses?.name}</div>
-                  <div style={{ fontSize: '10px', color: '#888', fontWeight: '600' }}>Ended {formatTime(item.start_time)}</div>
-                </div>
-              </div>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {pastClasses.slice(0, 2).map((item) => renderClassCard(item, true))}
+            
+            <div className={`expandable-content ${isPastExpanded ? 'is-open' : ''}`}>
+               {pastClasses.slice(2).map((item) => renderClassCard(item, true))}
+            </div>
+
+            {pastClasses.length > 2 && (
+              <button 
+                onClick={() => setIsPastExpanded(!isPastExpanded)} 
+                style={{ background: 'none', border: 'none', color: '#666', fontWeight: '800', fontSize: '10px', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', margin: '0 auto', cursor: 'pointer' }}
+              >
+                {isPastExpanded ? <>HIDE RECENT <ChevronUp size={12}/></> : <>SHOW {pastClasses.length - 2} PAST <ChevronDown size={12}/></>}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -262,6 +292,22 @@ const Home = ({ theme, darkMode, userName, stats, todayClasses, loading }) => {
       <style>{`
         @keyframes pulseGreen { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: 0.4; } 100% { transform: scale(1); opacity: 1; } }
         .pulse-dot { animation: pulseGreen 2s infinite; }
+        
+        /* Smooth Animation Logic */
+        .expandable-content {
+          max-height: 0;
+          overflow: hidden;
+          opacity: 0;
+          transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+          pointer-events: none;
+        }
+        
+        .expandable-content.is-open {
+          max-height: 1000px; /* Large enough to hold content */
+          opacity: 1;
+          pointer-events: auto;
+          margin-bottom: 10px;
+        }
       `}</style>
     </div>
   );
