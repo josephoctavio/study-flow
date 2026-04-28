@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { BookOpen, Settings, ChevronRight, Clock, UserCog, BarChart3, Info } from 'lucide-react';
+import { 
+  BookOpen, 
+  Settings, 
+  ChevronRight, 
+  Clock, 
+  UserCog, 
+  BarChart3, 
+  Info, 
+  HelpCircle, 
+  MessageSquare // --- IMPORTED MESSAGESQUARE ---
+} from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 const Profile = ({ setActiveTab, theme, darkMode, stats, userName, profileData, loading }) => {
@@ -10,7 +20,8 @@ const Profile = ({ setActiveTab, theme, darkMode, stats, userName, profileData, 
     card: theme?.card || '#111111',
     bg: theme?.bg || '#000',
     border: theme?.border || '#222222',
-    accent: theme?.accent || '#007AFF'
+    accent: theme?.accent || '#007AFF',
+    muted: theme?.muted || '#888888'
   };
 
   const handleLogout = async () => await supabase.auth.signOut();
@@ -107,14 +118,14 @@ const Profile = ({ setActiveTab, theme, darkMode, stats, userName, profileData, 
         
         <div style={{ display: 'inline-block', marginTop: '8px', padding: '6px 14px', backgroundColor: `${colors.accent}14`, borderRadius: '20px', border: `1px solid ${colors.accent}1A` }}>
            <p style={{ color: colors.accent, fontSize: '9px', fontWeight: '900', margin: 0, letterSpacing: '1.2px' }}>
-            {profileData?.matric_no ? `ID: ${profileData.matric_no}` : 'PREMIUM ACCOUNT'}
+            {profileData?.matric_no ? `${profileData.matric_no}` : 'PREMIUM ACCOUNT'}
           </p>
         </div>
       </div>
 
       {/* GLOBAL STATS */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '35px' }}>
-        <StatCard icon={<BarChart3 size={18} color="#5856D6" />} value={stats?.courses || 0} label="Projects" colors={colors} />
+        <StatCard icon={<BarChart3 size={18} color="#5856D6" />} value={stats?.courses || 0} label="Courses" colors={colors} />
         <StatCard icon={<BookOpen size={18} color="#34C759" />} value={stats?.totalTasks || 0} label="Tasks" colors={colors} />
       </div>
 
@@ -122,11 +133,44 @@ const Profile = ({ setActiveTab, theme, darkMode, stats, userName, profileData, 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '30px' }}>
         <h4 style={{ fontSize: '10px', fontWeight: '900', color: '#555', letterSpacing: '1px', marginBottom: '8px', paddingLeft: '8px' }}>MANAGEMENT</h4>
         <MenuButton icon={<UserCog size={18} color="#AF52DE" />} label="Edit Profile" onClick={() => setActiveTab('edit-profile')} colors={colors} />
-        <MenuButton icon={<BookOpen size={18} color={colors.accent} />} label="Workspace Manager" onClick={() => setActiveTab('course-manager')} colors={colors} />
+        <MenuButton icon={<BookOpen size={18} color={colors.accent} />} label="Course Manager" onClick={() => setActiveTab('course-manager')} colors={colors} />
         <MenuButton icon={<Clock size={18} color="#FF9500" />} label="My Schedule" onClick={() => setActiveTab('schedule-manager')} colors={colors} />
         
         <h4 style={{ fontSize: '10px', fontWeight: '900', color: '#555', letterSpacing: '1px', marginBottom: '8px', marginTop: '12px', paddingLeft: '8px' }}>SYSTEM</h4>
         <MenuButton icon={<Settings size={18} color="#8E8E93" />} label="App Settings" onClick={() => setActiveTab('config')} colors={colors} />
+        
+        {/* --- DEV FEEDBACK LOGS (PROTECTED) --- */}
+        {/* Only show this if the user ID matches yours exactly */}
+        {supabase.auth.getUser() && profileData?.id === "5e50af0d-dd42-4feb-ba2d-b7b2d8f1a4f0" && (
+          <MenuButton 
+            icon={<BarChart3 size={18} color="#FF2D55" />} 
+            label="Dev Feedback Logs" 
+            onClick={() => setActiveTab('admin-feedback')} 
+            colors={colors} 
+          />
+        )}
+
+        {/* --- NEW FEEDBACK BUTTON --- */}
+        <MenuButton 
+          icon={<MessageSquare size={18} color="#34C759" />} 
+          label="Send Feedback" 
+          onClick={() => setActiveTab('feedback')} 
+          colors={colors} 
+        />
+
+        <MenuButton 
+          icon={<Info size={18} color="#5AC8FA" />} 
+          label="About Focus Forge" 
+          onClick={() => setActiveTab('about')} 
+          colors={colors} 
+        />
+
+        <MenuButton 
+          icon={<HelpCircle size={18} color={colors.accent} />} 
+          label="App Tutorial" 
+          onClick={() => setActiveTab('tutorial')} 
+          colors={colors} 
+        />
       </div>
 
       <button onClick={() => setModalOpen(true)} style={logoutStyle}>

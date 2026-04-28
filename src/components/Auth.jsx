@@ -91,7 +91,14 @@ export default function Auth({ forceRecovery = false }) {
         });
         if (error) throw error;
         if (data.user) {
-          await supabase.from('profiles').insert([{ id: data.user.id, full_name: fullName, dark_mode: true }]);
+          await supabase.from('profiles').insert([
+            { 
+              id: data.user.id, 
+              full_name: fullName, 
+              dark_mode: true,
+              has_seen_onboarding: false // Explicitly setting this to false for new users
+            }
+          ]);
         }
         showStatus("Account created! Please verify your email.", "success");
       } 

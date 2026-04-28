@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Plus, Trash2, User, ChevronUp, Loader2, AlertCircle, AlertTriangle, BookOpen, CheckCircle2 } from 'lucide-react';
+import { 
+  ArrowLeft, Plus, Trash2, User, ChevronUp, Loader2, 
+  AlertCircle, AlertTriangle, BookOpen, CheckCircle2, 
+  Pencil, Hash, Type 
+} from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 const CourseManager = ({ setActiveTab, theme, darkMode, courses, loading, refreshData }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  const [editingId, setEditingId] = useState(null); 
   
   // UX States
   const [error, setError] = useState(null);
@@ -17,7 +22,8 @@ const CourseManager = ({ setActiveTab, theme, darkMode, courses, loading, refres
   });
 
   // Form States
-  const [courseName, setCourseName] = useState('');
+  const [courseCode, setCourseCode] = useState('');
+  const [courseTitle, setCourseTitle] = useState('');
   const [lecturer, setLecturer] = useState('');
   
   const colorsList = ['#007AFF', '#FF9500', '#34C759', '#5856D6', '#FF2D55', '#AF52DE', '#5AC8FA', '#FFCC00'];
@@ -32,11 +38,17 @@ const CourseManager = ({ setActiveTab, theme, darkMode, courses, loading, refres
 
   const toggleForm = () => {
     if (isFormOpen) {
-      setError(null);
-      setCourseName('');
-      setLecturer('');
+      resetForm();
     }
     setIsFormOpen(!isFormOpen);
+  };
+
+  const resetForm = () => {
+    setError(null);
+    setCourseCode('');
+    setCourseTitle('');
+    setLecturer('');
+    setEditingId(null);
   };
 
   const triggerError = (msg) => {
@@ -44,30 +56,64 @@ const CourseManager = ({ setActiveTab, theme, darkMode, courses, loading, refres
     setShakeKey(prev => prev + 1); 
   };
 
-  const addCourse = async () => {
-    const trimmedName = courseName.trim();
-    if (!trimmedName) return triggerError("Course Title is required");
+  const handleEditInitiation = (course) => {
+    setEditingId(course.id);
+    setCourseCode(course.course_code || '');
+    setCourseTitle(course.name || '');
+    setLecturer(course.lecturer || '');
+    setIsFormOpen(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const saveCourse = async () => {
+    const trimmedCode = courseCode.trim().toUpperCase();
+    const trimmedTitle = courseTitle.trim();
+    
+    // 1. Basic Mandatory Check
+    if (!trimmedCode || !trimmedTitle) return triggerError("Code and Title are required");
+    
+    // 2. Local Duplicate Check (Before calling Database)
+    const isDuplicateCode = courses.some(c => 
+        c.id !== editingId && c.course_code?.toUpperCase() === trimmedCode
+    );
+    const isDuplicateTitle = courses.some(c => 
+        c.id !== editingId && c.name?.toLowerCase() === trimmedTitle.toLowerCase()
+    );
+
+    if (isDuplicateCode) return triggerError(`Code "${trimmedCode}" already exists`);
+    if (isDuplicateTitle) return triggerError(`Title "${trimmedTitle}" already exists`);
+
     if (!window.navigator.onLine) return triggerError("No internet connection.");
     if (formLoading) return;
 
-    const exists = courses.some(c => c.name.toLowerCase() === trimmedName.toLowerCase());
-    if (exists) return triggerError(`"${trimmedName}" already exists.`);
-
     setFormLoading(true);
     setError(null);
-    const randomColor = colorsList[Math.floor(Math.random() * colorsList.length)];
 
-    const { error: dbError } = await supabase.from('courses').insert([
-      { name: trimmedName, color: randomColor, lecturer: lecturer.trim() || null }
-    ]);
+    const courseData = { 
+      course_code: trimmedCode,
+      name: trimmedTitle, 
+      lecturer: lecturer.trim() || null 
+    };
+
+    let dbError;
+    if (editingId) {
+      const { error } = await supabase.from('courses').update(courseData).eq('id', editingId);
+      dbError = error;
+    } else {
+      const randomColor = colorsList[Math.floor(Math.random() * colorsList.length)];
+      const { error } = await supabase.from('courses').insert([{ ...courseData, color: randomColor }]);
+      dbError = error;
+    }
 
     if (dbError) {
-      triggerError("Failed to save. Try again.");
+      triggerError("Database error. Please try again.");
       setFormLoading(false);
     } else {
-      showToast("Course Added");
-      setCourseName(''); setLecturer(''); setIsFormOpen(false); setFormLoading(false);
-      refreshData(); // Updates the Global Brain
+      showToast(editingId ? "Changes Saved" : "Course Added");
+      resetForm();
+      setIsFormOpen(false);
+      setFormLoading(false);
+      refreshData();
     }
   };
 
@@ -82,9 +128,8 @@ const CourseManager = ({ setActiveTab, theme, darkMode, courses, loading, refres
     });
   };
 
-  // --- SKELETON UI ---
   const SkeletonItem = () => (
-    <div className="skeleton" style={{ height: '75px', borderRadius: '20px', marginBottom: '12px' }} />
+    <div className="skeleton" style={{ height: '70px', borderRadius: '20px', marginBottom: '12px' }} />
   );
 
   return (
@@ -92,8 +137,8 @@ const CourseManager = ({ setActiveTab, theme, darkMode, courses, loading, refres
       
       {/* TOAST */}
       {toast.show && (
-        <div style={{ position: 'fixed', bottom: '100px', left: '50%', transform: 'translateX(-50%)', backgroundColor: toast.type === 'delete' ? '#FF3B30' : '#34C759', color: '#fff', padding: '14px 24px', borderRadius: '50px', zIndex: 10001, display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '800', fontSize: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.3)', animation: 'slideUpToast 0.3s ease-out' }}>
-          {toast.type === 'delete' ? <Trash2 size={16}/> : <CheckCircle2 size={16} />}
+        <div style={{ position: 'fixed', bottom: '100px', left: '50%', transform: 'translateX(-50%)', backgroundColor: toast.type === 'delete' ? '#FF3B30' : '#34C759', color: '#fff', padding: '12px 20px', borderRadius: '50px', zIndex: 10001, display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', fontSize: '11px', boxShadow: '0 10px 30px rgba(0,0,0,0.3)', animation: 'slideUpToast 0.3s ease-out' }}>
+          {toast.type === 'delete' ? <Trash2 size={14}/> : <CheckCircle2 size={14} />}
           {toast.message.toUpperCase()}
         </div>
       )}
@@ -101,28 +146,28 @@ const CourseManager = ({ setActiveTab, theme, darkMode, courses, loading, refres
       {/* CONFIRMATION MODAL */}
       {modalConfig.isOpen && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-          <div style={{ backgroundColor: theme.card, border: `1px solid ${theme.border}`, padding: '30px', borderRadius: '28px', maxWidth: '340px', width: '100%', textAlign: 'center', animation: 'scaleUp 0.2s ease-out' }}>
-            <div style={{ backgroundColor: 'rgba(255,59,48,0.1)', width: '56px', height: '56px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-              <AlertTriangle color="#FF3B30" size={28} />
+          <div style={{ backgroundColor: theme.card, border: `1px solid ${theme.border}`, padding: '30px', borderRadius: '28px', maxWidth: '320px', width: '100%', textAlign: 'center', animation: 'scaleUp 0.2s ease-out' }}>
+            <div style={{ backgroundColor: 'rgba(255,59,48,0.1)', width: '50px', height: '50px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <AlertTriangle color="#FF3B30" size={24} />
             </div>
-            <h3 style={{ fontSize: '18px', fontWeight: '900', marginBottom: '10px' }}>{modalConfig.title}</h3>
-            <p style={{ opacity: 0.5, fontSize: '14px', marginBottom: '28px', lineHeight: '1.5' }}>{modalConfig.message}</p>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={closeModal} style={{ flex: 1, padding: '14px', borderRadius: '16px', background: theme.border, color: theme.text, border: 'none', fontWeight: '700' }}>CANCEL</button>
-              <button onClick={modalConfig.onConfirm} style={{ flex: 1, padding: '14px', borderRadius: '16px', background: '#FF3B30', color: '#fff', border: 'none', fontWeight: '800' }}>DELETE</button>
+            <h3 style={{ fontSize: '17px', fontWeight: '900', marginBottom: '10px' }}>{modalConfig.title}</h3>
+            <p style={{ opacity: 0.6, fontSize: '13px', marginBottom: '28px', lineHeight: '1.5' }}>{modalConfig.message}</p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={closeModal} style={{ flex: 1, padding: '12px', borderRadius: '14px', background: theme.border, color: theme.text, border: 'none', fontWeight: '700', fontSize: '13px' }}>CANCEL</button>
+              <button onClick={modalConfig.onConfirm} style={{ flex: 1, padding: '12px', borderRadius: '14px', background: '#FF3B30', color: '#fff', border: 'none', fontWeight: '800', fontSize: '13px' }}>DELETE</button>
             </div>
           </div>
         </div>
       )}
 
       {/* HEADER */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '35px', paddingTop: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button onClick={() => setActiveTab('profile')} style={{ background: theme.card, border: `1px solid ${theme.border}`, padding: '10px', borderRadius: '14px', color: theme.text, display: 'flex' }}><ArrowLeft size={20} /></button>
-          <h2 style={{ fontSize: '20px', fontWeight: '900', letterSpacing: '-0.5px' }}>COURSES</h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '30px', paddingTop: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <button onClick={() => setActiveTab('profile')} style={{ background: theme.card, border: `1px solid ${theme.border}`, padding: '8px', borderRadius: '12px', color: theme.text, display: 'flex' }}><ArrowLeft size={18} /></button>
+          <h2 style={{ fontSize: '18px', fontWeight: '900', letterSpacing: '-0.5px' }}>COURSES</h2>
         </div>
-        <button onClick={toggleForm} style={{ backgroundColor: isFormOpen ? theme.card : theme.accent, color: isFormOpen ? theme.text : '#fff', border: isFormOpen ? `1px solid ${theme.border}` : 'none', padding: '10px 18px', borderRadius: '14px', fontWeight: '800', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {isFormOpen ? <ChevronUp size={16} /> : <Plus size={16} />}
+        <button onClick={toggleForm} style={{ backgroundColor: isFormOpen ? theme.card : theme.accent, color: isFormOpen ? theme.text : '#fff', border: isFormOpen ? `1px solid ${theme.border}` : 'none', padding: '8px 16px', borderRadius: '12px', fontWeight: '800', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s ease' }}>
+          {isFormOpen ? <ChevronUp size={14} /> : <Plus size={14} />}
           {isFormOpen ? 'CLOSE' : 'ADD NEW'}
         </button>
       </div>
@@ -131,54 +176,94 @@ const CourseManager = ({ setActiveTab, theme, darkMode, courses, loading, refres
       {isFormOpen && (
         <div 
           key={shakeKey} 
-          style={{ backgroundColor: theme.card, padding: '24px', borderRadius: '28px', border: `1px solid ${error ? '#FF3B30' : theme.border}`, marginBottom: '32px', animation: error ? 'shake 0.4s both' : 'fadeIn 0.3s ease', boxShadow: `0 10px 40px rgba(0,0,0,${darkMode ? '0.4' : '0.05'})` }}
+          style={{ backgroundColor: theme.card, padding: '20px', borderRadius: '24px', border: `1px solid ${error ? '#FF3B30' : theme.border}`, marginBottom: '32px', animation: error ? 'shake 0.4s both' : 'fadeIn 0.3s ease', boxShadow: `0 10px 40px rgba(0,0,0,${darkMode ? '0.4' : '0.05'})` }}
         >
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ fontSize: '10px', color: error ? '#FF3B30' : theme.text, opacity: 0.5, fontWeight: '900', marginBottom: '10px', display: 'block', letterSpacing: '1px' }}>COURSE TITLE</label>
-            <input 
-              type="text" 
-              placeholder="e.g. MTH 102" 
-              value={courseName} 
-              onChange={(e) => { setCourseName(e.target.value); if(error) setError(null); }} 
-              style={{ width: '100%', padding: '16px', borderRadius: '16px', backgroundColor: theme.bg, border: `1px solid ${error ? '#FF3B30' : theme.border}`, color: theme.text, outline: 'none', fontWeight: '600' }} 
-            />
-            {error && <div style={{ color: '#FF3B30', fontSize: '11px', fontWeight: '800', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}><AlertCircle size={14}/> {error.toUpperCase()}</div>}
-          </div>
-
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ fontSize: '10px', color: theme.text, opacity: 0.5, fontWeight: '900', marginBottom: '10px', display: 'block', letterSpacing: '1px' }}>LECTURER (OPTIONAL)</label>
+          <h4 style={{ fontSize: '11px', fontWeight: '900', marginBottom: '18px', color: theme.accent, letterSpacing: '0.5px' }}>{editingId ? 'EDITING COURSE' : 'CREATE NEW COURSE'}</h4>
+          
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ fontSize: '9px', color: theme.text, opacity: 0.5, fontWeight: '900', marginBottom: '6px', display: 'block', letterSpacing: '1px' }}>COURSE CODE</label>
             <div style={{ position: 'relative' }}>
-              <User size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }} />
-              <input type="text" placeholder="Dr. Jane Doe" value={lecturer} onChange={(e) => setLecturer(e.target.value)} style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: '16px', backgroundColor: theme.bg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none', fontWeight: '600' }} />
+              <Hash size={14} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }} />
+              <input 
+                type="text" 
+                placeholder="MCM 101" 
+                value={courseCode} 
+                maxLength={15}
+                onChange={(e) => { setCourseCode(e.target.value); if(error) setError(null); }} 
+                style={{ width: '100%', padding: '14px 14px 14px 40px', borderRadius: '14px', backgroundColor: theme.bg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none', fontWeight: '700', fontSize: '14px' }} 
+              />
             </div>
           </div>
+
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ fontSize: '9px', color: theme.text, opacity: 0.5, fontWeight: '900', marginBottom: '6px', display: 'block', letterSpacing: '1px' }}>COURSE TITLE</label>
+            <div style={{ position: 'relative' }}>
+              <Type size={14} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }} />
+              <input 
+                type="text" 
+                placeholder="Film & Media Production" 
+                value={courseTitle} 
+                onChange={(e) => { setCourseTitle(e.target.value); if(error) setError(null); }} 
+                style={{ width: '100%', padding: '14px 14px 14px 40px', borderRadius: '14px', backgroundColor: theme.bg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none', fontWeight: '600', fontSize: '14px' }} 
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ fontSize: '9px', color: theme.text, opacity: 0.5, fontWeight: '900', marginBottom: '6px', display: 'block', letterSpacing: '1px' }}>LECTURER (OPTIONAL)</label>
+            <div style={{ position: 'relative' }}>
+              <User size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }} />
+              <input type="text" placeholder="Dr. Jane Doe" value={lecturer} onChange={(e) => setLecturer(e.target.value)} style={{ width: '100%', padding: '14px 14px 14px 40px', borderRadius: '14px', backgroundColor: theme.bg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none', fontWeight: '600', fontSize: '14px' }} />
+            </div>
+          </div>
+
+          {error && <div style={{ color: '#FF3B30', fontSize: '10px', fontWeight: '800', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,59,48,0.1)', padding: '10px', borderRadius: '10px' }}><AlertCircle size={14}/> {error.toUpperCase()}</div>}
           
-          <button onClick={addCourse} disabled={formLoading} style={{ width: '100%', backgroundColor: theme.accent, color: '#fff', padding: '16px', borderRadius: '16px', fontWeight: '900', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontSize: '14px' }}>
-            {formLoading ? <Loader2 className="spin" size={18} /> : 'SAVE COURSE'}
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {editingId && (
+              <button onClick={resetForm} style={{ flex: 1, backgroundColor: 'transparent', color: theme.text, padding: '12px', borderRadius: '14px', fontWeight: '800', border: `1px solid ${theme.border}`, fontSize: '12px' }}>CANCEL</button>
+            )}
+            <button onClick={saveCourse} disabled={formLoading} style={{ flex: 2, backgroundColor: theme.accent, color: '#fff', padding: '12px', borderRadius: '14px', fontWeight: '900', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '13px' }}>
+              {formLoading ? <Loader2 className="spin" size={16} /> : (editingId ? 'SAVE CHANGES' : 'CREATE COURSE')}
+            </button>
+          </div>
         </div>
       )}
 
       {/* LIST */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {loading ? (
           [1, 2, 3, 4].map(i => <SkeletonItem key={i} />)
         ) : courses.length === 0 && !isFormOpen ? (
           <div style={{ height: '50vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
-            <BookOpen size={64} strokeWidth={1} style={{ marginBottom: '16px' }} />
-            <p style={{ fontWeight: '800', fontSize: '14px', letterSpacing: '1px' }}>NO COURSES ADDED</p>
+            <BookOpen size={50} strokeWidth={1} style={{ marginBottom: '16px' }} />
+            <p style={{ fontWeight: '800', fontSize: '12px', letterSpacing: '1px' }}>NO COURSES ADDED</p>
           </div>
         ) : (
           courses.map(course => (
-            <div key={course.id} style={{ padding: '20px', backgroundColor: theme.card, borderRadius: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: `1px solid ${theme.border}`, animation: 'fadeIn 0.3s ease' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '6px', height: '40px', backgroundColor: course.color, borderRadius: '10px', boxShadow: `0 0 15px ${course.color}44` }} />
-                <div>
-                  <div style={{ fontWeight: '800', fontSize: '16px', color: theme.text, letterSpacing: '-0.3px' }}>{course.name}</div>
-                  {course.lecturer && <div style={{ fontSize: '12px', color: theme.text, opacity: 0.4, fontWeight: '600', marginTop: '2px' }}>{course.lecturer}</div>}
+            <div key={course.id} style={{ padding: '16px', backgroundColor: theme.card, borderRadius: '22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: `1px solid ${theme.border}`, animation: 'fadeIn 0.3s ease' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
+                <div style={{ width: '4px', height: '32px', backgroundColor: course.color, borderRadius: '10px' }} />
+                <div style={{ overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '9px', fontWeight: '900', backgroundColor: `${course.color}15`, color: course.color, padding: '2px 6px', borderRadius: '5px', letterSpacing: '0.5px' }}>
+                      {course.course_code || 'CODE'}
+                    </span>
+                    <div style={{ fontWeight: '800', fontSize: '14px', color: theme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{course.name}</div>
+                  </div>
+                  {/* FIXED LECTURER COLOR: Using theme.muted for better legibility */}
+                  {course.lecturer && (
+                    <div style={{ fontSize: '11px', color: theme.muted, fontWeight: '600' }}>
+                      {course.lecturer}
+                    </div>
+                  )}
                 </div>
               </div>
-              <button onClick={() => deleteCourse(course.id)} style={{ background: 'rgba(255,59,48,0.05)', border: 'none', color: '#FF3B30', padding: '10px', borderRadius: '12px', cursor: 'pointer', display: 'flex' }}><Trash2 size={18} /></button>
+              
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button onClick={() => handleEditInitiation(course)} style={{ background: 'transparent', border: `1px solid ${theme.border}`, color: theme.text, padding: '8px', borderRadius: '10px', cursor: 'pointer', opacity: 0.7 }}><Pencil size={14} /></button>
+                <button onClick={() => deleteCourse(course.id)} style={{ background: 'rgba(255,59,48,0.05)', border: 'none', color: '#FF3B30', padding: '8px', borderRadius: '10px', cursor: 'pointer' }}><Trash2 size={16} /></button>
+              </div>
             </div>
           ))
         )}
@@ -189,8 +274,8 @@ const CourseManager = ({ setActiveTab, theme, darkMode, courses, loading, refres
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         
         .skeleton { 
-          background: ${darkMode ? '#1A1A1A' : '#E1E1E1'};
-          background-image: linear-gradient(90deg, transparent, ${darkMode ? '#222' : '#F0F0F0'}, transparent);
+          background: ${darkMode ? '#111' : '#E5E5E5'};
+          background-image: linear-gradient(90deg, transparent, ${darkMode ? '#1A1A1A' : '#F0F0F0'}, transparent);
           background-size: 200px 100%;
           background-repeat: no-repeat;
           animation: shimmer 1.5s infinite linear;

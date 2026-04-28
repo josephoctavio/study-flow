@@ -17,6 +17,10 @@ import CourseManager from './pages/CourseManager';
 import ScheduleManager from './pages/ScheduleManager';
 import Settings from './pages/Settings';
 import PrivacySecurity from './pages/PrivacySecurity'; 
+import Tutorial from './pages/Tutorial';
+import About from './pages/About'; 
+import Feedback from './pages/Feedback';
+import AdminFeedback from './pages/AdminFeedback'; // --- IMPORTED ADMIN FEEDBACK ---
 
 function App() {
   const [session, setSession] = useState(null);
@@ -36,6 +40,18 @@ function App() {
   const [profileData, setProfileData] = useState(null);
   const [stats, setStats] = useState({ totalTasks: 0, completedTasks: 0, courses: 0, percentage: 0 });
   const [loading, setLoading] = useState(true);
+
+  // New State for Onboarding
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+
+  // --- SCROLL TO TOP LOGIC ---
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    const contentElement = document.querySelector('.main-content');
+    if (contentElement) {
+      contentElement.scrollTop = 0;
+    }
+  }, [activeTab]);
 
   // --- INTERNET CONNECTIVITY LOGIC ---
   useEffect(() => {
@@ -105,8 +121,12 @@ function App() {
       if (data) {
         setProfileData(data);
         if (data.dark_mode !== null) setDarkMode(data.dark_mode);
-        if (data.theme_color) setAccentColor(data.theme_color); // Load saved color
+        if (data.theme_color) setAccentColor(data.theme_color); 
         if (data.full_name) setUserName(data.full_name.split(' ')[0]);
+        
+        if (data.has_seen_onboarding === false) {
+          setShowWelcomeModal(true);
+        }
       }
     } catch (err) { console.error("Error preferences:", err); }
   }, []);
@@ -119,11 +139,21 @@ function App() {
     }
   };
 
-  // New function to update accent color globally and in DB
   const updateAccentColor = async (newColor) => {
-    setAccentColor(newColor); // Update UI immediately
+    setAccentColor(newColor); 
     if (session?.user?.id) {
       await supabase.from('profiles').update({ theme_color: newColor }).eq('id', session.user.id);
+    }
+  };
+
+  // --- ONBOARDING LOGIC ---
+  const handleDismissOnboarding = async (startTutorial = false) => {
+    setShowWelcomeModal(false);
+    if (session?.user?.id) {
+      await supabase.from('profiles').update({ has_seen_onboarding: true }).eq('id', session.user.id);
+    }
+    if (startTutorial) {
+      setActiveTab('tutorial');
     }
   };
 
@@ -178,12 +208,10 @@ function App() {
     text: darkMode ? '#FFFFFF' : '#000000',
     card: darkMode ? '#111111' : '#FFFFFF',
     border: darkMode ? '#222222' : '#E5E5E5',
-    accent: accentColor, // Dynamically uses the accentColor state
+    accent: accentColor,
     danger: '#FF3B30',
     muted: darkMode ? '#888888' : '#666666'
   }), [darkMode, accentColor]);
-
-  // --- RENDER LOGIC ---
 
   if (initializing) return <div style={{ backgroundColor: '#000', minHeight: '100vh' }} />;
 
@@ -205,7 +233,7 @@ function App() {
           display: 'flex', alignItems: 'center', gap: '8px', 
           fontSize: '14px', fontWeight: '700', boxShadow: '0 10px 30px rgba(255, 59, 48, 0.3)'
         }}>
-          <AlertCircle size={18} /> No internet connection detected
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><AlertCircle size={18} /> No internet connection detected</span>
         </div>
 
         <div style={{ 
@@ -264,6 +292,16 @@ function App() {
 
   return (
     <div className={`app-shell ${darkMode ? 'dark' : 'light'}`} style={{ backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
+      
+      {showWelcomeModal && (
+        <WelcomeModal 
+          userName={userName} 
+          theme={theme} 
+          onSkip={() => handleDismissOnboarding(false)} 
+          onGoToTutorial={() => handleDismissOnboarding(true)} 
+        />
+      )}
+
       <div className="mobile-container">
         <main className="main-content" style={{ paddingBottom: '80px' }}>
           
@@ -310,12 +348,42 @@ function App() {
                 theme={theme} 
                 darkMode={darkMode} 
                 toggleTheme={toggleTheme} 
-                onUpdateAccent={updateAccentColor} // New Prop
+                onUpdateAccent={updateAccentColor}
             />
           )}
 
           {activeTab === 'privacy-security' && (
             <PrivacySecurity onBack={() => setActiveTab('config')} theme={theme} />
+          )}
+
+          {activeTab === 'tutorial' && (
+            <Tutorial 
+              theme={theme} 
+              setActiveTab={setActiveTab} 
+            />
+          )}
+
+          {activeTab === 'about' && (
+            <About 
+              setActiveTab={setActiveTab} 
+              theme={theme} 
+            />
+          )}
+
+          {activeTab === 'feedback' && (
+            <Feedback 
+              setActiveTab={setActiveTab} 
+              theme={theme} 
+              profileData={profileData}
+            />
+          )}
+
+          {/* --- ADMIN FEEDBACK TAB REGISTRATION --- */}
+          {activeTab === 'admin-feedback' && (
+            <AdminFeedback 
+              setActiveTab={setActiveTab} 
+              theme={theme} 
+            />
           )}
           
         </main>
@@ -323,6 +391,53 @@ function App() {
         <footer className="nav-wrapper" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: theme.card, borderTop: `1px solid ${theme.border}`, zIndex: 1000 }}>
           <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} />
         </footer>
+      </div>
+    </div>
+  );
+}
+
+function WelcomeModal({ userName, theme, onSkip, onGoToTutorial }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.9)', 
+      zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', 
+      padding: '24px', backdropFilter: 'blur(10px)'
+    }}>
+      <div style={{
+        backgroundColor: theme.card, width: '100%', maxWidth: '340px', 
+        borderRadius: '32px', border: `1px solid ${theme.border}`, 
+        padding: '32px', textAlign: 'center', boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+      }}>
+        <div style={{ fontSize: '40px', marginBottom: '16px' }}>👋</div>
+        <h2 style={{ fontSize: '24px', fontWeight: '900', marginBottom: '8px' }}>
+          Welcome, {userName || 'Scholar'}!
+        </h2>
+        <p style={{ color: theme.muted, fontSize: '14px', lineHeight: '1.5', marginBottom: '24px' }}>
+          Ready to sharpen your productivity? Take a quick tour of Focus Forge to get started.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <button 
+            onClick={onGoToTutorial}
+            style={{ 
+              padding: '16px', borderRadius: '16px', border: 'none', 
+              backgroundColor: theme.accent, color: '#fff', fontWeight: '800', cursor: 'pointer' 
+            }}
+          >
+            GO TO TUTORIAL
+          </button>
+          <button 
+            onClick={onSkip}
+            style={{ 
+              padding: '16px', borderRadius: '16px', border: `1px solid ${theme.border}`, 
+              backgroundColor: 'transparent', color: theme.text, fontWeight: '700', cursor: 'pointer' 
+            }}
+          >
+            SKIP FOR NOW
+          </button>
+        </div>
+        <p style={{ fontSize: '10px', color: theme.muted, marginTop: '20px', fontWeight: '600' }}>
+          TUTORIAL CAN ALWAYS BE REVISITED IN THE PROFILE PAGE
+        </p>
       </div>
     </div>
   );
